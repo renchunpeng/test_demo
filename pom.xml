@@ -13,6 +13,7 @@
     <modules>
         <module>demo_web</module>
         <module>demo_service</module>
+        <module>demo_lucene</module>
     </modules>
 
     <!--因为我们创建的是springboot的聚合工程，下面的子工程都当前项目为父工程，所以当前工程必须继承下面这个-->
@@ -33,6 +34,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.10</version>
         </dependency>
     </dependencies>
 
