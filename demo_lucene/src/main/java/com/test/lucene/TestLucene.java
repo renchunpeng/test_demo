@@ -1,6 +1,7 @@
 package com.test.lucene;
 
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
@@ -63,14 +64,16 @@ public class TestLucene {
         int id = 1;
 
         //将字段加入到doc中
-        doc.add(new IntPoint("id", id));
-        doc.add(new StringField("title", "Spark4", Field.Store.YES));
-        doc.add(new TextField("content", "Apache Spark 是专为大规模数据处理而设计的快速通用的计算引擎4", Field.Store.YES));
-        doc.add(new StoredField("id", id));
+        for(int i=0;i<3000;i++) {
+            doc.add(new IntPoint("id", i));
+            doc.add(new StringField("title", "Spark" + i, Field.Store.YES));
+            doc.add(new TextField("content", "Apache Spark 是专为大规模数据处理而设计的快速通用的计算引擎" + i, Field.Store.YES));
+            doc.add(new StoredField("id", id));
 
-        //将doc对象保存到索引库中
-        indexWriter.addDocument(doc);
-        indexWriter2.addDocument(doc);
+            //将doc对象保存到索引库中
+            indexWriter.addDocument(doc);
+            indexWriter2.addDocument(doc);
+        }
 
         indexWriter.commit();
         indexWriter2.commit();
@@ -79,12 +82,7 @@ public class TestLucene {
         indexWriter2.close();
 
         long end = System.currentTimeMillis();
-        System.out.println("索引花费了" + (end - start) + " 毫秒");
-        try {
-            termQueryTest();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        System.out.println("创建索引花费了" + (end - start) + " 毫秒");
     }
 
     /**
@@ -97,24 +95,53 @@ public class TestLucene {
      *
      * @throws IOException
      */
+    @Test
     public void termQueryTest() throws Exception {
 
-        String searchField = "title";
-        //这是一个条件查询的api，用于添加条件
-        TermQuery query = new TermQuery(new Term(searchField, "Spark4"));
+        String searchField1 = "title";
+        String searchField2 = "content";
+        Query query1 = new TermQuery(new Term(searchField1, "Spark"));
+        Query query2 = new TermQuery(new Term(searchField2, "Apache"));
+        BooleanQuery.Builder builder = new BooleanQuery.Builder();
+
+        // BooleanClause用于表示布尔查询子句关系的类，
+        // 包 括：
+        // BooleanClause.Occur.MUST，
+        // BooleanClause.Occur.MUST_NOT，
+        // BooleanClause.Occur.SHOULD。
+        // 必须包含,不能包含,可以包含三种.有以下6种组合：
+        //
+        // 1．MUST和MUST：取得连个查询子句的交集。
+        // 2．MUST和MUST_NOT：表示查询结果中不能包含MUST_NOT所对应得查询子句的检索结果。
+        // 3．SHOULD与MUST_NOT：连用时，功能同MUST和MUST_NOT。
+        // 4．SHOULD与MUST连用时，结果为MUST子句的检索结果,但是SHOULD可影响排序。
+        // 5．SHOULD与SHOULD：表示“或”关系，最终检索结果为所有检索子句的并集。
+        // 6．MUST_NOT和MUST_NOT：无意义，检索无结果。
+
+        builder.add(query1, BooleanClause.Occur.SHOULD);
+        builder.add(query2, BooleanClause.Occur.SHOULD);
+
+
+        BooleanQuery query = builder.build();
 
         //执行查询，并打印查询到的记录数
         executeQuery(query);
     }
 
-    private void executeQuery(TermQuery query) throws Exception  {
+    private void executeQuery(BooleanQuery query) throws Exception  {
         //打开索引目录
         IndexReader r = DirectoryReader.open(ramDirectory);
         //创建索引查询对象
         IndexSearcher searcher = new IndexSearcher(r);
 
+        SortField sortField = new SortField("title",SortField.Type.LONG,true);
+        Sort sort = new Sort(sortField);
+
         //search(查询对象,符合条件的前n条记录)
+        Long start = System.currentTimeMillis();
         TopDocs search = searcher.search(query, 10000);
+        Long end = System.currentTimeMillis();
+        System.out.println("lucene搜索结果花费:["+(end-start)+"]ms");
         System.out.println("符合条件的记录有多少个:" + search.totalHits);
 
         ScoreDoc[] scoreDocs = search.scoreDocs;
@@ -126,7 +153,8 @@ public class TestLucene {
             int docId = scoreDocs[i].doc;
             Document document = searcher.doc(docId);
             System.out.println("文档编号 docId--->" + docId);
-            System.out.println("标题内容 title:--->" + document.get("content"));
+            System.out.println("标题标题 title:--->" + document.get("title"));
+            System.out.println("标题内容 content:--->" + document.get("content"));
         }
     }
 
